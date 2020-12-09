@@ -1,4 +1,4 @@
-function [Bout,Uout,Lout] = remove_spike(B,varargin)
+function [bbp_out,flag_out,Uout,Lout] = qctest_spike(bbp,varargin)
 % REMOVE_SPIKE 
 % replaces spikes using a running median filter. Any spike values are
 % replaced with the median value of a window of size 'win' centered on the
@@ -12,7 +12,10 @@ function [Bout,Uout,Lout] = remove_spike(B,varargin)
 % method (optional): outlier method for isoutlier [default = 'median']
 % 
 % OUTPUTS
-% Bout: Array with 
+% Bout: Array with bbp_out with spikes replaced by median vals
+% flag_out: boolean array with 1 where spikes were removed
+% Uout: upper bound bbp value for determining spike
+
 %
 % USAGE:
 % BBP_clean = remove_spike(BBP);
@@ -24,10 +27,11 @@ function [Bout,Uout,Lout] = remove_spike(B,varargin)
 % -------------------------------------------------------------------------
 
 % preallocate output arrays
-Bout = B;
-Uout = nan.*B;
-Lout = nan.*B;
-dimB = size(Bout);
+bbp_out = bbp;
+Uout = nan.*bbp;
+Lout = nan.*bbp;
+flag_out = false(size(bbp));
+dimB = size(bbp_out);
 nprof = dimB(2);
 
 %% validate inputs
@@ -63,8 +67,8 @@ end
 
 %% loop through each profile
 for it = 1:nprof
-    d = ~isnan(Bout(:,it));
-    bprof = Bout(d,it);
+    d = ~isnan(bbp_out(:,it));
+    bprof = bbp_out(d,it);
     bprof_corr = bprof;
     hi = nan.*bprof;
     lo = hi;
@@ -87,10 +91,10 @@ for it = 1:nprof
         Uout(d,it) = hi;
         Lout(d,it) = lo;
     end
-    Bout(d,it) = bprof_corr;    
-    
+    bbp_out(d,it) = bprof_corr;    
 end
-
+flag_out(:) = ~isnan(bbp(:)) & bbp_out(:)-bbp(:)~=0;
+end
 % WINDOW_INDEX
 % creates 'skewed' windows at the top and bottom of profiles
 % e.g., the top points all use the window from 1:win until profile point
@@ -114,4 +118,4 @@ function [winind, pos] = window_index(ctr,win,nobs)
         pos = pos - shift;
     end
 end
-end
+

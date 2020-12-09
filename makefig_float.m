@@ -1,4 +1,4 @@
-function [f] = plot_float(dac,wmo,nth_prof)
+function [f] = makefig_float(dac,wmo,nth_prof)
 % Plot profiles for a single float
 % removed spikes are red dots and the corresponding filled median values 
 % are green
@@ -19,38 +19,38 @@ local_config;
 sprof_file = fullfile(gdac_path,'dac',dac,wmo,[wmo,'_Sprof.nc']);
 
 
-bbp = ncread(sprof_file,'BBP700');
+bbp0 = ncread(sprof_file,'BBP700');
+[bbp1,irange] = qctest_range(bbp0);
+noutrange = sum(irange(:));
 p = ncread(sprof_file,'PRES');
-nprof = size(bbp,2);
-bbp_clean = remove_spike(bbp,WINDOW_SIZE);
-isspike = abs(bbp-bbp_clean) > 1e-8;
+nprof = size(bbp1,2);
+[bbp2,isspike] = qctest_spike(bbp1,WINDOW_SIZE);
+[bbp3, irange2] = qctest_range(bbp2,[0, 0.006]);
+
 
 
 f = figure;
 tiledlayout('flow','TileSpacing','none');
-for ii = 1:nth_prof:nprof
-    title(['wmo: ', wmo, ' prof: ',num2str(ii)]);
-    bbp_prof = bbp(:,ii);
-    bbp_clean_prof = bbp_clean(:,ii);
-    p_prof = p(:,ii);
-    d = ~isnan(bbp_clean(:,ii));
-    ispk = d & isspike(:,ii);
-    p1 = plot(bbp(d,ii),p(d,ii),'-','Color',[0.5 0.5 0.5]);
-    p2 = plot(bbp_clean(d,ii),p(d,ii),'.-k');
+profs = 1:nth_prof:nprof;
+for ii = profs   
+    nexttile;
     hold on;
+    title(['wmo: ', wmo, ' prof: ',num2str(ii)]);
+    bbp_prof = bbp1(:,ii);
+    bbp_clean_prof = bbp3(:,ii);
+    p_prof = p(:,ii);
+    d = ~isnan(bbp3(:,ii));
+    ispk = d & isspike(:,ii);
+    p1 = plot(bbp1(d,ii),p(d,ii),'-','Color',[0.5 0.5 0.5]);
+    p2 = plot(bbp3(d,ii),p(d,ii),'.-k');
     plot(bbp_prof(ispk),p_prof(ispk),'.r','MarkerSize',10);
     plot(bbp_clean_prof(ispk),p_prof(ispk),'.g','MarkerSize',10);
-    nexttile;
+    % if any outrange, plot at bbp = 0;
+    if sum(irange(:,ii)) > 0
+        irng = irange(:,ii) | irange2(:,ii);
+        plot(0.*p_prof(irng),p_prof(irng),'.m','MarkerSize',10);
+    end
     set(gca,'YDir','reverse');
-    hold on;
-    
 end
 
-% %% helper function to despike a single float
-% function [bbp_clean,isspike] = despike(bbp)
-%     [isspike,U,L,C] = isoutlier(bbp,'movmedian',11);
-%     bbp_clean = bbp;
-%     bbp_clean(isspike) = C(isspike);
-% 
-% end
 end

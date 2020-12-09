@@ -1,66 +1,82 @@
-% Process a list of floats by wmo
+function [A,S,errors] = spike_stats(dac_list,wmo_list)
+% Perform range test for a profile or whole float
+
+% Process. a list of floats by wmo
 % accumulate statistics on spikes
 % may take a while to run if doing lots of floats (a few mins)
+%
+% INPUTS:
+% dac_list: list of dacs (e.g., 'coriolis', 'aoml')
+% wmo_list: list o wmo strings (e.g., '6902953')
+%
+
 local_config;
 % a list of wmos - here using all the soccom floats
-load soccom_wmo.mat;
-
+%load soccom_wmo.mat;
+bbp_var = 'BBP700';
+bbp_range1 = [-0.000025, 0.1];
+bbp_range2 = [0 0.006];
 WINDOW_SIZE = 11;
 
 nfloat = length(wmo_list);
 good_count = false(nfloat,1);
-p_all = [];
-bbp_clean_all = [];
-bbp_all = [];
-isspk_all = false(0,0);
-spk_all = [];
+A.p_all = [];
+A.bbp_clean_all = [];
+A.bbp_all = [];
+A.ispk_all = false(0,0);
+A.spk_all = [];
+A.wmo_all = [];
+A.isoutrange_all = [];
+A.isoutrange2_all = [];
 errors = cell(nfloat,1);
 for ii = 1:nfloat
-    sprof_file = fullfile(gdac_path,'dac','aoml',wmo_list{ii},[wmo_list{ii},'_Sprof.nc']);
+    sprof_file = fullfile(gdac_path,'dac',dac_list{ii},wmo_list{ii},[wmo_list{ii},'_Sprof.nc']);
     try
-        bbp = ncread(sprof_file,'BBP700');
+        bbp0 = ncread(sprof_file,bbp_var);
         p = ncread(sprof_file,'PRES');
-        bbp_clean = remove_spike(bbp,WINDOW_SIZE);
-        isspike = abs(bbp-bbp_clean) > 0;
-        %[bbp_clean,isspike] = despike(bbp);
+        % range test performed prior to despiking
+        [bbp1,isoutrange] = qctest_range(bbp0,bbp_range1);
+        bbp2 = qctest_spike(bbp1,WINDOW_SIZE);
+        % perform 3rd QC step with tighter range
+        [bbp3,isoutrange2] = qctest_range(bbp2,bbp_range2);
+        ispike = abs(bbp1-bbp2) > 0;
         good_count(ii) = true;
-        % accumulate arrays
-        p_all = [p_all;p(:)];
-        isspk_all = [isspk_all;isspike(:)];
-        bbp_clean_all = [bbp_clean_all;bbp_clean(:)];
-        bbp_all = [bbp_all;bbp(:)];
-        spk_all = [spk_all;bbp(:)-bbp_clean(:)];
+        
+        % accumulate arrays and store in output structure
+        A.p_all = [A.p_all;p(:)];
+        A.ispk_all = [A.ispk_all;ispike(:)];
+        A.isoutrange_all = [A.isoutrange_all;isoutrange(:)];
+        A.isoutrange2_all = [A.isoutrange2_all;isoutrange2(:)];
+        A.bbp_all = [A.bbp_all;bbp1(:)];
+        A.bbp2_all = [A.bbp2_all;bbp2(:)];
+        A.bbp3_all = [A.bbp3_all;bbp3(:)];
+        A.spk_all = [A.spk_all;bbp1(:)-bbp2(:)];
+        A.wmo_all = [A.wmo_all;repmat(wmo_list{ii},length(p(:)),1)];
         
     catch ME
         errors{ii} = ME.message;
    end
 end
 
-%% bin and plot results
-d = isnan(spk_all);
-p_all(d) = [];
-bbp_clean_all(d) = [];
-isspk_all(d) = [];
-spk_all(d) = [];
+S.dbin = 2;
+S.bin_edge = 0:S.dbin:2000;
+S.binctr = S.bin_edge(1:end-1)+S.dbin/2;
+[S.spk_count] = histcounts(A.p_all(logical(A.ispk_all)),S.bin_edge);
+[S.rng_count] = histcounts(A.p_all(logical(A.isoutrange_all)),S.bin_edge);
+[S.rng2_count] = histcounts(A.p_all(logical(A.isoutrange2_all)),S.bin_edge);
+[S.all_count] = histcounts(A.p_all,S.bin_edge);
+S.spk_pct = sum(S.spk_count)./sum(S.all_count);
+S.rng_pct = sum(S.rng_count)./sum(S.all_count);
+S.rng2_pct = sum(S.rng2_count)./sum(S.all_count);
+disp([num2str(100.*S.rng_pct), '% of ', num2str(sum(S.all_count)), ' points were flagged during initial range rest :', num2str(bbp_range1), ' (m^-1)']);
+disp([num2str(100.*S.spk_pct), '% of ', num2str(sum(S.all_count)), ' points were flagged as spikes']);
+disp([num2str(100.*S.rng2_pct), '% of ', num2str(sum(S.all_count)), ' points were flagged during second range rest :', num2str(bbp_range2), ' (m^-1)']);
 
-dbin = 2;
-bin_edge = [0:dbin:2000];
-binctr = bin_edge(1:end-1)+dbin/2;
-[spk_count] = histcounts(p_all(logical(isspk_all)),bin_edge);
-[all_count] = histcounts(p_all,bin_edge);
 
-count_thresh = all_count > 1e3;
-figure;plot(100.*spk_count(count_thresh)./all_count(count_thresh),binctr(count_thresh));
-xlabel('Percent that were spikes');
-set(gca,'YDir','reverse','FontSize',14,'LineWidth',1,'TickDir','out');
-figure;plot(all_count,binctr);
-xlabel('total number of obs in bin');
-set(gca,'YDir','reverse','FontSize',14,'LineWidth',1,'TickDir','out');
-
-%% helper function to despike a single float
-function [bbp_clean,isspike] = despike(bbp)
-    [isspike,U,L,C] = isoutlier(bbp,'movmedian',11);
-    bbp_clean = bbp;
-    bbp_clean(isspike) = C(isspike);
-
-end
+% %% helper function to despike a single float
+% function [bbp_clean,iS.pike] = despike(bbp)
+%     [iS.pike,U,L,C] = isoutlier(bbp,'movmedian',11);
+%     bbp_clean = bbp;
+%     bbp_clean(iS.pike) = C(iS.pike);
+% 
+% end

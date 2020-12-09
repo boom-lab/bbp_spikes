@@ -1,0 +1,34 @@
+##---------------------------------------------------
+## .gitignore for Matlab. File types that will not be synced
+##---------------------------------------------------
+
+*.DS_STORE
+
+# Windows default autosave extension
+*.asv
+
+# OSX / *nix default autosave extension
+*.m~
+
+# Compiled MEX binaries (all platforms)
+*.mex*
+
+# Simulink Code Generation
+slprj/
+
+# Avoid syncing binary data files (netcdfs, .mat files)
+
+*.nc*
+*.mat
+*.bin
+
+# ignore figures and ppt
+
+*.ppt*
+*.eps
+*.pdf
+*.png
+*.jpg
+
+
+*.xml
