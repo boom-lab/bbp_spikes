@@ -21,8 +21,9 @@ WINDOW_SIZE = 11;
 nfloat = length(wmo_list);
 good_count = false(nfloat,1);
 A.p_all = [];
-A.bbp_clean_all = [];
-A.bbp_all = [];
+A.bbp1_all = [];
+A.bbp2_all = [];
+A.bbp3_all = [];
 A.ispk_all = false(0,0);
 A.spk_all = [];
 A.wmo_all = [];
@@ -36,6 +37,7 @@ for ii = 1:nfloat
         p = ncread(sprof_file,'PRES');
         % range test performed prior to despiking
         [bbp1,isoutrange] = qctest_range(bbp0,bbp_range1);
+        % despike 
         bbp2 = qctest_spike(bbp1,WINDOW_SIZE);
         % perform 3rd QC step with tighter range
         [bbp3,isoutrange2] = qctest_range(bbp2,bbp_range2);
@@ -43,15 +45,16 @@ for ii = 1:nfloat
         good_count(ii) = true;
         
         % accumulate arrays and store in output structure
-        A.p_all = [A.p_all;p(:)];
-        A.ispk_all = [A.ispk_all;ispike(:)];
-        A.isoutrange_all = [A.isoutrange_all;isoutrange(:)];
-        A.isoutrange2_all = [A.isoutrange2_all;isoutrange2(:)];
-        A.bbp_all = [A.bbp_all;bbp1(:)];
-        A.bbp2_all = [A.bbp2_all;bbp2(:)];
-        A.bbp3_all = [A.bbp3_all;bbp3(:)];
-        A.spk_all = [A.spk_all;bbp1(:)-bbp2(:)];
-        A.wmo_all = [A.wmo_all;repmat(wmo_list{ii},length(p(:)),1)];
+        d = ~isnan(bbp0(:));
+        A.p_all = [A.p_all;p(d)];
+        A.ispk_all = [A.ispk_all;ispike(d)];
+        A.isoutrange_all = [A.isoutrange_all;isoutrange(d)];
+        A.isoutrange2_all = [A.isoutrange2_all;isoutrange2(d)];
+        A.bbp1_all = [A.bbp1_all;bbp1(d)];
+        A.bbp2_all = [A.bbp2_all;bbp2(d)];
+        A.bbp3_all = [A.bbp3_all;bbp3(d)];
+        A.spk_all = [A.spk_all;bbp1(d)-bbp2(d)];
+        A.wmo_all = [A.wmo_all;repmat(wmo_list{ii},length(p(d)),1)];
         
     catch ME
         errors{ii} = ME.message;

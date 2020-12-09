@@ -35,7 +35,7 @@ profs = 1:nth_prof:nprof;
 for ii = profs   
     nexttile;
     hold on;
-    title(['wmo: ', wmo, ' prof: ',num2str(ii)]);
+    title([' prof: ',num2str(ii)]);
     bbp_prof = bbp1(:,ii);
     bbp_clean_prof = bbp3(:,ii);
     p_prof = p(:,ii);
@@ -51,6 +51,9 @@ for ii = profs
         plot(0.*p_prof(irng),p_prof(irng),'.m','MarkerSize',10);
     end
     set(gca,'YDir','reverse');
+    box on;
 end
+sgtitle(['dac: ', dac,' wmo: ', wmo]);
+set(f,'Units','centimeters','PaperPositionMode', 'auto','Position',[1 1 40 30]);
 
 end
