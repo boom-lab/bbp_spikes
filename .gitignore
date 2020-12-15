@@ -26,7 +26,7 @@ slprj/
 
 *.ppt*
 *.eps
-*.pdf
+#*.pdf
 *.png
 *.jpg
 
